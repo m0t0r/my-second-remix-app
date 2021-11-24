@@ -12,6 +12,7 @@ export const links: LinksFunction = () => {
     },
   ]
 }
+
 type LoaderData = {
   jokes: Array<{id: string; name: string}>
 }
