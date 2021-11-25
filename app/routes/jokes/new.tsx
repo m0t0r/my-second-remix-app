@@ -1,7 +1,8 @@
-import {redirect, useActionData, useCatch, Link, Form} from 'remix'
+import {redirect, useActionData, useCatch, Link, Form, useTransition} from 'remix'
 import type {ActionFunction, LoaderFunction} from 'remix'
 import {db} from '~/utils/db.server'
 import {requireUserId, getUserId} from '~/utils/session.server'
+import {JokeDisplay} from '~/components/joke'
 
 function validateLength(value: string, length: number, field: string) {
   if (value.length < length) {
@@ -57,9 +58,22 @@ export const action: ActionFunction = async ({request}): Promise<Response | Acti
   const joke = await db.joke.create({data: {...fields, jokesterId: userId}})
   return redirect(`/jokes/${joke.id}`)
 }
-
 function NewJokeRoute() {
-  const actionData = useActionData<ActionData>()
+  let actionData = useActionData<ActionData | undefined>()
+  let transition = useTransition()
+
+  if (transition.submission) {
+    let name = transition.submission.formData.get('name')
+    let content = transition.submission.formData.get('content')
+    if (
+      typeof name === 'string' &&
+      typeof content === 'string' &&
+      !validateLength(content, 10, 'Joke') &&
+      !validateLength(name, 3, 'Name')
+    ) {
+      return <JokeDisplay joke={{name, content}} isOwner={true} canDelete={false} />
+    }
+  }
 
   return (
     <div>
