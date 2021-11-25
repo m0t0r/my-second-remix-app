@@ -1,4 +1,4 @@
-import type {ActionFunction, LinksFunction} from 'remix'
+import type {ActionFunction, LinksFunction, MetaFunction} from 'remix'
 import {useActionData, Link, useSearchParams} from 'remix'
 import {db} from '~/utils/db.server'
 import {login, createUserSession, register} from '~/utils/session.server'
@@ -6,6 +6,13 @@ import stylesUrl from '../styles/login.css'
 
 export const links: LinksFunction = () => {
   return [{rel: 'stylesheet', href: stylesUrl}]
+}
+
+export const meta: MetaFunction = () => {
+  return {
+    title: 'Remix Jokes | Login',
+    description: 'Login to submit your own jokes to Remix Jokes!',
+  }
 }
 
 function validateUsername(username: unknown) {
@@ -67,7 +74,7 @@ export const action: ActionFunction = async ({request}): Promise<Response | Acti
           formError: `Username/Password combination is incorrect`,
         }
       }
-      console.log('HEHEHEHEH', redirectTo)
+
       return createUserSession(user.id, redirectTo)
     }
     case 'register': {
