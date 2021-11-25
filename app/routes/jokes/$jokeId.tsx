@@ -1,11 +1,13 @@
-import {useLoaderData, Link, useParams, useCatch} from 'remix'
+import {useLoaderData, Link, useParams, useCatch, redirect} from 'remix'
 import type {Joke} from '@prisma/client'
-import type {LoaderFunction} from 'remix'
+import {ActionFunction, LoaderFunction} from 'remix'
 import {db} from '~/utils/db.server'
+import {requireUserId, getUserId} from '~/utils/session.server'
 
-type LoaderData = {joke: Joke}
+type LoaderData = {joke: Joke; isOwner: boolean}
 
-export const loader: LoaderFunction = async ({params: {jokeId}}) => {
+export const loader: LoaderFunction = async ({request, params: {jokeId}}) => {
+  let userId = await getUserId(request)
   const joke = await db.joke.findUnique({where: {id: jokeId}})
 
   if (!joke) {
@@ -14,8 +16,32 @@ export const loader: LoaderFunction = async ({params: {jokeId}}) => {
     })
   }
 
-  const data: LoaderData = {joke}
+  const data: LoaderData = {joke, isOwner: userId === joke.jokesterId}
   return data
+}
+
+export const action: ActionFunction = async ({request, params}) => {
+  const form = await request.formData()
+
+  if (form.get('_method') === 'delete') {
+    const userId = await requireUserId(request)
+    const joke = await db.joke.findUnique({
+      where: {id: params.jokeId},
+    })
+
+    if (!joke) {
+      throw new Response("Can't delete what does not exist", {status: 404})
+    }
+
+    if (joke.jokesterId !== userId) {
+      throw new Response("Pssh, nice try. That's not your joke", {
+        status: 401,
+      })
+    }
+
+    await db.joke.delete({where: {id: params.jokeId}})
+    return redirect('/jokes')
+  }
 }
 
 function JokeRoute() {
@@ -25,6 +51,14 @@ function JokeRoute() {
       <p>Here's your hilarious joke:</p>
       <p>{data.joke.content}</p>
       <Link to=".">{data.joke.name} Permalink</Link>
+      {data.isOwner ? (
+        <form method="post">
+          <input type="hidden" name="_method" value="delete" />
+          <button type="submit" className="button">
+            Delete
+          </button>
+        </form>
+      ) : null}
     </div>
   )
 }
@@ -32,14 +66,21 @@ function JokeRoute() {
 export function CatchBoundary() {
   let caught = useCatch()
   let params = useParams()
-  if (caught.status === 404) {
-    return <div className="error-container">Huh? What the heck is "{params.jokeId}"?</div>
+  switch (caught.status) {
+    case 404: {
+      return <div className="error-container">Huh? What the heck is {params.jokeId}?</div>
+    }
+    case 401: {
+      return <div className="error-container">Sorry, but {params.jokeId} is not your joke.</div>
+    }
+    default: {
+      throw new Error(`Unhandled error: ${caught.status}`)
+    }
   }
-  throw new Error(`Unhandled error: ${caught.status}`)
 }
 
 export function ErrorBoundary() {
-  let {jokeId} = useParams()
+  const {jokeId} = useParams()
   return (
     <div className="error-container">{`There was an error loading joke by the id ${jokeId}. Sorry.`}</div>
   )
