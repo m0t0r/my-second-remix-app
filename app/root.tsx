@@ -1,4 +1,4 @@
-import {Outlet, LiveReload, Links} from 'remix'
+import {Outlet, LiveReload, Links, useCatch} from 'remix'
 import type {LinksFunction} from 'remix'
 
 import globalStylesUrl from './styles/global.css'
@@ -50,6 +50,20 @@ export default function App() {
   return (
     <Document>
       <Outlet />
+    </Document>
+  )
+}
+
+export function CatchBoundary() {
+  let caught = useCatch()
+
+  return (
+    <Document title={`${caught.status} ${caught.statusText}`}>
+      <div className="error-container">
+        <h1>
+          {caught.status} {caught.statusText}
+        </h1>
+      </div>
     </Document>
   )
 }
