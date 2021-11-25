@@ -1,7 +1,7 @@
-import {Outlet, Link, useLoaderData} from 'remix'
-import type {LinksFunction, LoaderFunction} from 'remix'
+import {User} from '@prisma/client'
+import {Link, LinksFunction, LoaderFunction, useLoaderData, Outlet} from 'remix'
 import {db} from '~/utils/db.server'
-
+import {getUser} from '~/utils/session.server'
 import stylesUrl from '../styles/jokes.css'
 
 export const links: LinksFunction = () => {
@@ -14,22 +14,26 @@ export const links: LinksFunction = () => {
 }
 
 type LoaderData = {
+  user: User | null
   jokes: Array<{id: string; name: string}>
 }
 
-export const loader: LoaderFunction = async () => {
-  const data: LoaderData = {
-    jokes: await db.joke.findMany({
-      take: 5,
-      select: {id: true, name: true},
-      orderBy: {createdAt: 'desc'},
-    }),
-  }
+export const loader: LoaderFunction = async ({request}) => {
+  const jokes = await db.joke.findMany({
+    take: 5,
+    orderBy: {createdAt: 'desc'},
+    select: {id: true, name: true},
+  })
+  const user = await getUser(request)
 
+  const data: LoaderData = {
+    jokes,
+    user,
+  }
   return data
 }
 
-function JokesRoute() {
+export default function JokesRoute() {
   const data = useLoaderData<LoaderData>()
 
   return (
@@ -42,6 +46,18 @@ function JokesRoute() {
               <span className="logo-medium">J🤪KES</span>
             </Link>
           </h1>
+          {data.user ? (
+            <div className="user-info">
+              <span>{`Hi ${data.user.username}`}</span>
+              <form action="/logout" method="post">
+                <button type="submit" className="button">
+                  Logout
+                </button>
+              </form>
+            </div>
+          ) : (
+            <Link to="/login">Login</Link>
+          )}
         </div>
       </header>
       <main className="jokes-main">
@@ -60,7 +76,7 @@ function JokesRoute() {
               Add your own
             </Link>
           </div>
-          <div className="jokes-outlet">
+          <div className="jokes-outconst">
             <Outlet />
           </div>
         </div>
@@ -68,5 +84,3 @@ function JokesRoute() {
     </div>
   )
 }
-
-export default JokesRoute

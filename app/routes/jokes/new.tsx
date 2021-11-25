@@ -1,6 +1,7 @@
 import {redirect, useActionData} from 'remix'
 import type {ActionFunction} from 'remix'
 import {db} from '~/utils/db.server'
+import {requireUserId} from '~/utils/session.server'
 
 function validateLength(value: string, length: number, field: string) {
   if (value.length < length) {
@@ -21,6 +22,12 @@ type ActionData = {
 }
 
 export const action: ActionFunction = async ({request}): Promise<Response | ActionData> => {
+  let userId = await requireUserId(request)
+
+  if (!userId) {
+    return redirect('/login?redirectTo=/jokes/new')
+  }
+
   const form = await request.formData()
   const name = form.get('name')
   const content = form.get('content')
@@ -39,7 +46,7 @@ export const action: ActionFunction = async ({request}): Promise<Response | Acti
     return {fieldErrors, fields}
   }
 
-  const joke = await db.joke.create({data: fields})
+  const joke = await db.joke.create({data: {...fields, jokesterId: userId}})
   return redirect(`/jokes/${joke.id}`)
 }
 
